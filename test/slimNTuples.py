@@ -10,8 +10,8 @@ from hashlib import md5
 import time
 from progressbar import ETA, ProgressBar, FormatLabel, Bar
 
-if len(sys.argv) < 2 or '-h' in sys.argv or '--help' in sys.argv:
-    print 'Usage ./slimNTuples other_branches_to_keep.list /hdfs/dir/with/files/to/be/skimmed'
+if len(sys.argv) < 3 or '-h' in sys.argv or '--help' in sys.argv:
+    print 'Usage ./slimNTuples other_branch_to_keep.list /hdfs/dir/with/files/to/be/skimmed'
     sys.exit(1)
 
 branches_to_keep = sys.argv[-2]
@@ -33,7 +33,7 @@ stdout, stderr = proc.communicate()
 exitc  = proc.wait()
 regex = re.compile(r'row\.\w+')
 usedBranches = list( set([i.split('.')[-1] for i in regex.findall(stdout)]))
-
+#print usedBranches
 #look for more complex statements (getVar and getattr)
 proc = subprocess.Popen("grep getattr %s/src/UWHiggs/?h/*.py | grep row" % (os.environ['CMSSW_BASE']), shell=True, stdout=subprocess.PIPE)
 stdout, stderr = proc.communicate()
@@ -52,12 +52,15 @@ otherObjs = list( set(otherObjs) )
 #check that our starred branches don't match any non starred, in case of match discard the non starred
 usedBranches = filter(lambda x: not any( ( fnmatch(x,y) for y in otherObjs) ), usedBranches) #use generator to be faster
 usedBranches.extend(otherObjs)
+usedBranches.extend([line.strip() for line in open(branches_to_keep, 'r')])
 
 JOBID   = filter(lambda x: x is not '', hdfs_path.split('/'))[-1]
 SAMPLES = [i.split('/')[-1] for i in glob(hdfs_path+'/*')]
-
-sample_tfile = glob('/'.join([hdfs_path,SAMPLES[0],'*.root']))[0]
+##SAMPLES = ['VH_120_HWW' , 'VH_130_HWW', 'VH_H2Tau_M-120', 'VH_H2Tau_M-130']
+##print SAMPLES
+sample_tfile = glob('/'.join([hdfs_path,SAMPLES[0],'','*.root']))[0]
 print 'Using %s as sample file to find trees and matching branches...' % sample_tfile
+
 
 import ROOT
 def GetContent(dir):
@@ -89,7 +92,8 @@ forest = []
 FindTrees( tfile, '', forest )
 
 timestamp = str(int(time.mktime(time.gmtime())))
-listsdir  = '/scratch/mverzett/%s' % timestamp
+#listsdir  = '/scratch/taroni/%s' % timestamp
+listsdir = '/afs/hep.wisc.edu/cms/%s/%s' % (os.environ['USER'],timestamp)
 make_dir(listsdir)
 
 #define matching function, use generator to be faster (should stop at the first match)
@@ -109,86 +113,87 @@ for tree_name in forest:
         kept_branches    += len(matching_branches)
         with open(listsdir+'/%s.list' % tree_name.replace('/','_'),'w') as f:
             f.write('\n'.join(matching_branches))
+        
 
 compression_ratio = float(kept_branches) / float(tot_branches)
+
+##newhdfs_path = hdfs_path
+##print newhdfs_path.replace("mverzett","taroni")
+
 #os.path.getsize(
 print 'Compression ratio: %s' % compression_ratio
 print "Beginning multi threaded copy/complession/merge..."
 approx_chunk_size = 70*10**6 #~50MB
 procs   = {}
-threads = os.environ['megaworkers'] if 'megaworkers' in os.environ else 2
-with open("copyMergeSlim_"+timestamp+".status",'w') as status_file:
-    logdir = os.getcwd()+'/'+timestamp
-    make_dir(logdir)
-    make_dir('/'.join(['','scratch',os.environ['USER'],'data',JOBID]) )
-    files_dict   = dict( [(sample, glob('/'.join([hdfs_path,sample,'*.root'])))  for sample in SAMPLES] )
-    tot_numfiles = reduce(lambda x, y: x+y, map(len,files_dict.itervalues()) )
-    pbar  = ProgressBar(
-        widgets = [
-            FormatLabel(
-                'Copied %(value)i/' + str(tot_numfiles) + ' files. '),
-                ETA(),
-                Bar('>')],
-        maxval = tot_numfiles ).start()
-    files_already_merged = 0
-    for sample in SAMPLES:
-        print 'Merging %s...' % sample
-        sample_dir = '/'.join(['','scratch',os.environ['USER'],'data',JOBID,sample])
-        make_dir( sample_dir )
-        chunk = []
-        size  = 0
-        for fname in files_dict[sample]:
-            isize = size + os.path.getsize(fname)
-            if isize*compression_ratio > approx_chunk_size:
-                hasher  = md5()
-                hasher.update(' '.join(chunk))
-                outName = hasher.hexdigest()
-                errlog = open('/'.join([logdir,outName+'.err']), 'w')
-                outlog = open('/'.join([logdir,outName+'.out']), 'w')
-                command = ['slimAndMergeNtuple',listsdir,'/'.join([sample_dir,outName+'.root']) ]
-                command.extend(chunk)
-                outlog.write("Executed: \n")
-                outlog.write(' '.join(command))
-                outlog.write('\n\n')
-                proc   = subprocess.Popen(command, stdout=outlog, stderr=errlog)
-                procs[outName] = {
-                    'proc' : proc,
-                    'out'  : outlog,
-                    'err'  : errlog,
-                    'nfile': len(chunk),
-                    }
-                size  = os.path.getsize(fname)
-                chunk = [fname]
-            else:
-                size = isize
-                chunk.append(fname)
-            while len(procs) >= threads: #wait the jobs to finish
-                time.sleep(3) #wait
-                todel = []
-                for name, info in procs.iteritems():
-                    info['err'].flush()
-                    info['out'].flush()
-                    ret_code = info['proc'].poll()
-                    if ret_code is not None: #One is done!
-                        val = 'OK' if ret_code == 0 else 'ERROR'
-                        status_file.write('%s MERGE_%s\n' % (name, val) ) #write on the status if it's done
-                        info['err'].close()
-                        info['out'].close()
-                        files_already_merged += info['nfile']
-                        pbar.update(files_already_merged)
-                        todel.append(name)
-                for name in todel:
-                    del procs[name]
+#threads = os.environ['megaworkers'] if 'megaworkers' in os.environ else 2
+#with open("copyMergeSlim_"+timestamp+".status",'w') as status_file:
+#    logdir = os.getcwd()+'/'+timestamp
+#    make_dir(logdir)
+#    make_dir('/'.join(['','scratch',os.environ['USER'],'data',JOBID]) )
+files_dict   = dict( [(sample, glob('/'.join([hdfs_path,sample,'','*.root'])))  for sample in SAMPLES] )
+#    tot_numfiles = reduce(lambda x, y: x+y, map(len,files_dict.itervalues()) )
+#    pbar  = ProgressBar(
+#        widgets = [
+#            FormatLabel(
+#                'Copied %(value)i/' + str(tot_numfiles) + ' files. '),
+#                ETA(),
+#                Bar('>')],
+#        maxval = tot_numfiles ).start()
+#    files_already_merged = 0
+run = 'source /afs/hep.wisc.edu/cms/taroni/newHiggs/src/FinalStateAnalysis/environment.sh\n'
+for sample in SAMPLES:
+    print 'Merging %s...' % sample
+    sample_dir = '/'.join(['','scratch',os.environ['USER'],'data',JOBID,sample])
+    make_dir( sample_dir )
+    chunk = []
+    isize  = 0
+    for fname in files_dict[sample]:
+        isize = isize + os.path.getsize(fname)
+        
+    ifile = len(files_dict[sample])/(isize*compression_ratio/(approx_chunk_size))
+        
+    print 'number of file for farmoutAnalysisJob '+ str(int(ifile)) +''
+#    job = """slimAndMergeNtuple """+str(listsdir)+""" test"""+str(sample)+""".root """+str('/'.join([hdfs_path,sample,'']))+"""*.root
+#    """
+#    job_file= open("slimNtuples"+str(sample)+"","w")
+#    job_file.write(job)
+#    job_file.close()
+##devo fare un file che contenga i file di input per tutti i sample?
 
-    for name, info in procs.iteritems():
-        ret_code = info['proc'].communicate() #now wait everythin is done
-        if ret_code is not None: #One is done!
-            print "%s DONE!" % name
-            val = 'OK' if ret_code == 0 else 'ERROR'
-            status_file.write('%s MERGE_%s\n' % (name, val) ) #write on the status if it's done
-            info['err'].close()
-            info['out'].close()
-            files_already_merged += info['nfile']
-            pbar.update(files_already_merged)
-            todel.append(name)
-    pbar.finish()
+    output_dir = 'srm://cmssrm.hep.wisc.edu:8443/srm/v2/server?SFN=/hdfs/store/user/'+'/'.join([os.environ['USER'],JOBID+'_light',sample])    
+    submit_dir = '/'.join(['','scratch',os.environ['USER'],JOBID,sample])
+##    run+="""mkdir -p """+submit_dir+"""/dags
+##farmoutAnalysisJobs  --infer-cmssw-path \"--submit-dir="""+submit_dir+"""/submit\" \
+##\"--output-dag-file="""+submit_dir+"""/dags/dag\" \
+##\"--output-dir="""+output_dir+"""\" \
+##--input-files-per-job="""+str(int(ifile))+""" --shared-fs \"--input-dir="""+'/'.join([hdfs_path,sample,''])+"""\" --fwklite  \
+##"""+'-'.join([JOBID,sample])+""" run_slim_and_merge.sh """+str(listsdir)+""" '$outputFileName' '$inputFileNames' \n """
+    input_path=hdfs_path[5:]
+    run+="""mkdir -p """+submit_dir+"""/dags
+farmoutAnalysisJobs  --infer-cmssw-path \"--submit-dir="""+submit_dir+"""/submit\" \
+\"--output-dag-file="""+submit_dir+"""/dags/dag\" \
+\"--output-dir="""+output_dir+"""\" \
+--input-files-per-job="""+str(int(ifile))+""" --shared-fs \"--input-dir=root://cmsxrootd.hep.wisc.edu/"""+'/'.join([input_path,sample,''])+"""\" --fwklite  \
+"""+'-'.join([JOBID,sample])+""" run_slim_and_merge.sh """+str(listsdir)+""" '$outputFileName' '$inputFileNames' \n """
+####        farmoutAnalysisJobs --infer-cmssw-path \"--submit-dir="""+str('/'.join([listsdir,sample]))+"""submit\" \
+##        \"--output-dag-file="""+str('/'.join([listsdir,sample]))+"""dags/dag\" \
+##        \"--output-dir=srm://cmssrm.hep.wisc.edu:8443/srm/v2/server?SFN="""+str('/'.join([hdfs_path,sample]))+"""\" \
+##        --input-files-per-job="""+str(ifile)+""" --shared-fs \"--input-dir="""+str('/'.join([hdfs_path,sample]))+"""\" \
+##        slimNTuples makeQuad=1 makeTNP=1 makeH2Tau=0 makeTrilepton=1 make4L=1 \
+##        rerunFSA=1 noPhotons=1 'inputFiles=$inputFileNames' 'outputFile=$outputFileName'"""
+
+run_file = open("slimAndMergeNtuples"+JOBID+".run","w")
+run_file.write(run)
+run_file.close()
+os.popen("chmod a+x slimAndMergeNtuples"+JOBID+".run")
+
+sh ="""#! /bin/bash
+source $CMSSW_BASE/src/FinalStateAnalysis/environment.sh
+echo $@
+slimAndMergeNtuple $@  """
+sh_file= open("run_slim_and_merge.sh","w")
+sh_file.write(sh)
+sh_file.close()
+os.popen("chmod a+x run_slim_and_merge.sh")
+            
+                
