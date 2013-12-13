@@ -100,7 +100,7 @@ class FakeRatesEM(MegaBase):
                 denom_histos['electronInfo'] = self.book(
                     os.path.join(region, denom),
                     'electronInfo', "electronInfo", 
-                    'electronPt:electronJetPt:electronJetCSVBtag:electronJetMass:numJets20:numJets40:weight:'+':'.join(self.lepIds), 
+                    'electronPt:electronJetPt:electronJetCSVBtag:numJets20:numJets40:weight:electronJetMass:muonJetMass:LT:'+':'.join(self.lepIds), 
                     type=ROOT.TNtuple)
 
                 denom_histos['evtInfo'] = self.book(
@@ -149,7 +149,7 @@ class FakeRatesEM(MegaBase):
                 denom_histos['muonInfo'] = self.book(
                     os.path.join(region, denom),
                     'muonInfo', "muonInfo", 
-                    'muonPt:muonJetPt:muonJetCSVBtag:muonJetMass:numJets20:numJets40:weight:'+':'.join(self.muon_lepIds), 
+                    'muonPt:muonJetPt:muonJetCSVBtag:numJets20:numJets40:weight:electronJetMass:muonJetMass:LT:'+':'.join(self.muon_lepIds), 
                     type=ROOT.TNtuple)
                 
                 denom_histos['evtInfo'] = self.book(
@@ -239,10 +239,13 @@ class FakeRatesEM(MegaBase):
             the_histos['eJetptDvseJetPt'].Fill(max(row.eJetPt, row.ePt),row.eJetptD) 
             if fillNtuple:
                 id_iso_vals = [ float( selections.lepton_id_iso(row, 'e', label) ) for label in self.lepIds]
-                electron_jet_mass = -1. #inv_mass(row.ePt, row.eEta, row.ePhi, row.leadingJetPt, row.leadingJetEta, row.leadingJetPhi)
+                electron_jet_mass = inv_mass(row.ePt, row.eEta, row.ePhi, row.leadingJetPt, row.leadingJetEta, row.leadingJetPhi)
+                muon_jet_mass     = inv_mass(row.mPt, row.mEta, row.mPhi, row.leadingJetPt, row.leadingJetEta, row.leadingJetPhi)
+                LT                = row.ePt + row.mPt + row.leadingJetPt
                 
                 the_histos['electronInfo'].Fill( array("f", [row.ePt, max(row.eJetPt, row.ePt), max(0, row.eJetCSVBtag), 
-                                                             electron_jet_mass, row.jetVeto20, row.jetVeto40_DR05, weight]+id_iso_vals) )
+                                                             row.jetVeto20, row.jetVeto40_DR05, weight, electron_jet_mass,
+                                                             muon_jet_mass, LT]+id_iso_vals) )
 
                 the_histos['evtInfo'].Fill(row)
 
@@ -263,11 +266,13 @@ class FakeRatesEM(MegaBase):
                 pfidiso02    = float( row.mPFIDTight and row.mRelPFIsoDB < 0.2)
                 h2taucuts    = float( row.mPFIDTight and ((row.mRelPFIsoDB < 0.15 and row.mAbsEta < 1.479) or row.mRelPFIsoDB < 0.1 ))
                 h2taucuts020 = float( row.mPFIDTight and ((row.mRelPFIsoDB < 0.20 and row.mAbsEta < 1.479) or row.mRelPFIsoDB < 0.15))
-                muon_jet_mass = -1. #inv_mass(row.mPt, row.mEta, row.mPhi, row.leadingJetPt, row.leadingJetEta, row.leadingJetPhi)
+                electron_jet_mass = inv_mass(row.ePt, row.eEta, row.ePhi, row.leadingJetPt, row.leadingJetEta, row.leadingJetPhi)
+                muon_jet_mass     = inv_mass(row.mPt, row.mEta, row.mPhi, row.leadingJetPt, row.leadingJetEta, row.leadingJetPhi)
+                LT                = row.ePt + row.mPt + row.leadingJetPt
                 
                 the_histos['muonInfo'].Fill( array("f", [row.mPt, max(row.mJetPt, row.mPt), max(0, row.mJetCSVBtag), 
-                                                         muon_jet_mass, row.jetVeto20, row.jetVeto40_DR05, weight, 
-                                                         pfidiso02, h2taucuts, h2taucuts020] ) )
+                                                         row.jetVeto20, row.jetVeto40_DR05, weight, electron_jet_mass,
+                                                         muon_jet_mass, LT, pfidiso02, h2taucuts, h2taucuts020] ) )
 
                 the_histos['evtInfo'].Fill(row)
                 

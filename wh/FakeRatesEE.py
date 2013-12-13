@@ -86,7 +86,7 @@ class FakeRatesEE(MegaBase):
                 denom_histos['electronInfo'] = self.book(
                     os.path.join(region, denom),
                     'electronInfo', "electronInfo", 
-                    'electronPt:electronJetPt:electronJetCSVBtag:electronJetMass:numJets20:numJets40:weight:'+':'.join(self.lepIds), 
+                    'electronPt:electronJetPt:electronJetCSVBtag:numJets20:numJets40:weight:tagElectronJetMass:probeElectronJetMass:LT:'+':'.join(self.lepIds), 
                     type=ROOT.TNtuple)
 
                 denom_histos['evtInfo'] = self.book(
@@ -187,10 +187,13 @@ class FakeRatesEE(MegaBase):
                 #print id_iso_vals
                 #print self.lepIds
                 id_iso_vals = [float( i ) for i in id_iso_vals ]
-                electron_jet_mass = -1 #inv_mass(row.e2Pt, row.e2Eta, row.e2Phi, row.leadingJetPt, row.leadingJetEta, row.leadingJetPhi)
-
+                electron1_jet_mass = inv_mass(row.e1Pt, row.e1Eta, row.e1Phi, row.leadingJetPt, row.leadingJetEta, row.leadingJetPhi)
+                electron2_jet_mass = inv_mass(row.e2Pt, row.e2Eta, row.e2Phi, row.leadingJetPt, row.leadingJetEta, row.leadingJetPhi)
+                LT = row.e1Pt + row.e2Pt + row.leadingJetPt
+                
                 the_histos['electronInfo'].Fill( array("f", [row.e2Pt, max(row.e2Pt, row.e2JetPt), max(0, row.e2JetCSVBtag),
-                                                             electron_jet_mass, row.jetVeto20, row.jetVeto40_DR05, weight]+id_iso_vals) )
+                                                             row.jetVeto20, row.jetVeto40_DR05, weight, electron1_jet_mass,
+                                                             electron2_jet_mass, LT]+id_iso_vals) )
                 the_histos['evtInfo'].Fill( row )
 
 

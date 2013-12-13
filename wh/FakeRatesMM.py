@@ -83,7 +83,7 @@ class FakeRatesMM(MegaBase):
                 denom_histos['muonInfo'] = self.book(
                     os.path.join(region, denom),
                     'muonInfo', "muonInfo", 
-                    'muonPt:muonJetPt:muonAbsEta:muonJetCSVBtag:muonPVDXY:muonJetMass:numJets20:numJets40:weight:'+':'.join(self.lepIds), 
+                    'muonPt:muonJetPt:muonAbsEta:muonJetCSVBtag:muonPVDXY:numJets20:numJets40:weight:tagMuonJetMass:probeMuonJetMass:LT:'+':'.join(self.lepIds), 
                     type=ROOT.TNtuple)
                 
                 for numerator in self.lepIds:
@@ -192,11 +192,13 @@ class FakeRatesMM(MegaBase):
                 pfidiso02    = float( row.m2PFIDTight and row.m2RelPFIsoDB < 0.2)
                 h2taucuts    = float( row.m2PFIDTight and ((row.m2RelPFIsoDB < 0.15 and row.m2AbsEta < 1.479) or row.m2RelPFIsoDB < 0.1 ))
                 h2taucuts020 = float( row.m2PFIDTight and ((row.m2RelPFIsoDB < 0.20 and row.m2AbsEta < 1.479) or row.m2RelPFIsoDB < 0.15))
-                muon_jet_mass = -1. #inv_mass(row.m1Pt, row.m1Eta, row.m1Phi, row.leadingJetPt, row.leadingJetEta, row.leadingJetPhi)
+                muon1_jet_mass = inv_mass(row.m1Pt, row.m1Eta, row.m1Phi, row.leadingJetPt, row.leadingJetEta, row.leadingJetPhi)
+                muon2_jet_mass = inv_mass(row.m2Pt, row.m2Eta, row.m2Phi, row.leadingJetPt, row.leadingJetEta, row.leadingJetPhi)
+                LT             = row.m2Pt + row.m1Pt + row.leadingJetPt
 
                 the_histos['muonInfo'].Fill( array("f", [row.m2Pt, max(row.m2JetPt, row.m2Pt), row.m2AbsEta, max(0, row.m2JetCSVBtag), 
-                                                         abs(row.m2PVDXY), muon_jet_mass, row.jetVeto20, row.jetVeto40_DR05, weight, 
-                                                         pfidiso02, h2taucuts, h2taucuts020] ) )
+                                                         abs(row.m2PVDXY), row.jetVeto20, row.jetVeto40_DR05, weight, muon1_jet_mass,
+                                                         muon2_jet_mass, LT, pfidiso02, h2taucuts, h2taucuts020] ) )
         
         def fill_region(region, tag):
             # This is a QCD or Wjets
