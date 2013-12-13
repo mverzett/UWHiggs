@@ -9,6 +9,7 @@ import glob
 from FinalStateAnalysis.PlotTools.Plotter import Plotter
 from FinalStateAnalysis.PlotTools.MedianView import MedianView
 from FinalStateAnalysis.PlotTools.DifferentialView import DifferentialView
+from FinalStateAnalysis.PlotTools.SubtractionView import SubtractionView
 import rootpy.plotting.views as views
 import rootpy.plotting as plotting
 from FinalStateAnalysis.PlotTools.HistToTGRaphErrors import HistStackToTGRaphErrors
@@ -344,3 +345,33 @@ plotter.save('e1AbsEta_wfakes')
 plotter.plot_zee_control('e2AbsEta', rebin=5, xaxis='|#eta|^{#mu2}', 
                          legend_on_the_left=False, show_ratio=True)
 plotter.save('e2AbsEta_wfakes')
+
+
+###########################################################################
+##  SHAPE FILE FOR FIT            #########################################
+###########################################################################
+
+flip_shape_file = ROOT.TFile(
+    os.path.join(
+        plotter.outputdir, 
+        'charge_flip_shapes.root'), 
+    'RECREATE'
+)
+shape_dir = flip_shape_file.mkdir('data')
+shape_dir.cd()
+ss_p1p2_view, ss_fakes_est, os_flip_est_nofake = plotter.get_flip_data(2, '', 'data')
+
+ss_view = SubtractionView(ss_p1p2_view, ss_fakes_est, restrict_positive=True)
+
+h_ss = ss_view.Get('TrkMass_NOSCALE')      
+h_os = os_flip_est_nofake.Get('TrkMass_NOSCALE')
+
+h_ss.SetTitle('ss_trkMass')
+h_os.SetTitle('os_trkMass')
+h_ss.SetName('ss_trkMass')
+h_os.SetName('os_trkMass')
+
+h_ss.Write()      
+h_os.Write()
+
+flip_shape_file.Close()
