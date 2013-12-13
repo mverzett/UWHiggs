@@ -68,12 +68,12 @@ class WHAnalyzeEMT(WHAnalyzerBase):
                 return (getattr(row,attribute), weight)
             return f
 
-        def mass_scaler(fcn):
+        def mass_scaler(fcn, scaler=frfits.data_scaler):
             def f(row, weight):
                 val, w = fcn(row, weight)
                 res = val
                 if row.ePt < row.mPt:
-                    res = frfits.default_scaler(val)
+                    res = scaler(val)
                 return res, w
             return f
 
@@ -115,6 +115,9 @@ class WHAnalyzeEMT(WHAnalyzerBase):
         self.hfunc["subMass*#LT" ] = merge_functions( mass_scaler( sub_mass ), attr_getter('LT'))
         self.hfunc["subMass*#tPt"] = merge_functions( mass_scaler( sub_mass ), attr_getter('tPt'))
 
+        self.hfunc["subMass*+#LT" ] = merge_functions( mass_scaler( sub_mass, scaler=frfits.default_scaler ), attr_getter('LT'))
+        self.hfunc["subMass*+#tPt"] = merge_functions( mass_scaler( sub_mass, scaler=frfits.default_scaler ), attr_getter('tPt'))
+
         #maps the name of non-trivial histograms to a function to get the proper value, the function MUST have two args (evt and weight). Used in WHAnalyzerBase.fill_histos later
         self.hfunc['subMass']   = sub_mass 
         self.hfunc['tLeadDR']   = lambda row, weight: (row.m_t_DR,   weight)    if row.ePt < row.mPt else (row.e_t_DR,   weight) 
@@ -124,9 +127,14 @@ class WHAnalyzeEMT(WHAnalyzerBase):
         self.hfunc["subJetPt"]  = lambda row, weight: (row.eJetPt, weight)      if row.ePt < row.mPt else (row.mJetPt, weight) 
         self.hfunc["leadJetPt"] = lambda row, weight: (row.mJetPt, weight)      if row.ePt < row.mPt else (row.eJetPt, weight)         
         self.hfunc['pt_ratio' ] = lambda row, weight: (row.ePt/row.mPt, weight) if row.ePt < row.mPt else (row.mPt/row.ePt, weight)
-        self.hfunc["e*_t_Mass"] = lambda row, weight: ( frfits.default_scaler( row.e_t_Mass), weight)
-        self.hfunc["e*_m_Mass"] = lambda row, weight: ( frfits.default_scaler( row.e_m_Mass), weight)
+        self.hfunc["e*_t_Mass"] = lambda row, weight: ( frfits.data_scaler( row.e_t_Mass), weight)
+        self.hfunc["e*_m_Mass"] = lambda row, weight: ( frfits.data_scaler( row.e_m_Mass), weight)
         self.hfunc["subMass*" ] = mass_scaler( sub_mass ) 
+
+        self.hfunc["e*+_t_Mass"] = lambda row, weight: ( frfits.default_scaler( row.e_t_Mass), weight)
+        self.hfunc["e*+_m_Mass"] = lambda row, weight: ( frfits.default_scaler( row.e_m_Mass), weight)
+        self.hfunc["subMass*+" ] = mass_scaler( sub_mass, scaler=frfits.default_scaler ) 
+
         self.hfunc["_recoilDaught" ] = lambda row, weight: (math.sqrt(row.recoilDaught) , weight)
         self.hfunc["_recoilWithMet"] = lambda row, weight: (math.sqrt(row.recoilWithMet), weight)
         self.hfunc['SYNC'] = lambda row, weight: (row, None) #((row.run, row.lumi, row.evt, row.mPt, row.mEta, row.mPhi, row.ePt, row.eEta, row.ePhi, row.tPt, row.tEta, row.tPhi, weight), None )
@@ -134,25 +142,27 @@ class WHAnalyzeEMT(WHAnalyzerBase):
         self.pucorrector = mcCorrectors.make_puCorrector('mueg')
 
     def book_histos(self, folder):
+        LTBinning = array('d',[0] + range(50,210,10) + [600])
+        #LTBinning = array('d',[0, 80, 130, 600])
+        nLTBins   = len(LTBinning) -1
         if region_for_event_list and region_for_event_list != folder:
             return
         for key in self.grid_search:
             prefix = key+'$' if key else ''
             #self.book(folder, prefix+"subMass", "Subleading Mass", 200, 0, 200)
-            self.book(folder, prefix+"LT", "L_T", 100, 0, 300)
+            self.book(folder, prefix+"LT", "L_T", 100, 0, 500)
             #Charge mis-id special histograms
             #if 'c2' in folder:
             #    self.book(folder, prefix+"subMass*", "Subleading Mass", 200, 0, 200)
 
         if len(self.grid_search.keys()) == 1:
-            LTBinning = array('d',[0, 80, 130, 600])
-            nLTBins   = len(LTBinning) -1
             if 'c2' in folder:
                 self.book(folder, "e*_t_Mass", "Electron-Tau Mass", 200, 0, 200)
                 self.book(folder, "e*_m_Mass", "Electron-Muon Mass", 200, 0, 200)
-                #self.book(folder, "subMass*#faking_prob", '', 200, 0, 200, 220, 0., 1.1, type=ROOT.TH2F)
-                #self.book(folder, "subMass*#log_prob"   , '', 200, 0, 200, 200, -2,  1, type=ROOT.TH2F)
                 self.book(folder, "subMass*#LT"         , '', 300, 0, 300, nLTBins, LTBinning, type=ROOT.TH2F)
+                self.book(folder, "e*+_t_Mass", "Electron-Tau Mass", 200, 0, 200)
+                self.book(folder, "e*+_m_Mass", "Electron-Muon Mass", 200, 0, 200)
+                self.book(folder, "subMass*+#LT"         , '', 300, 0, 300, nLTBins, LTBinning, type=ROOT.TH2F)
 
             self.book(folder, 'SYNC', 'SYNC', 
                       'run/l:lumi/l:evt/l' +\

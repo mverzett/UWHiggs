@@ -80,10 +80,10 @@ class WHAnalyzeEET(WHAnalyzerBase):
                 return fcn(row, weight) if ok else negval
             return f
 
-        def mass_scaler(fcn):
+        def mass_scaler(fcn, scaler=frfits.data_scaler):
             def f(row, weight):
                 val, w = fcn(row, weight)
-                return frfits.default_scaler(val), w
+                return scaler(val), w
             return f
 
         def merge_functions(fcn_1, fcn_2):
@@ -121,19 +121,21 @@ class WHAnalyzeEET(WHAnalyzerBase):
         
         self.hfunc['faking_prob'] = f_prob
         self.hfunc['log_prob']    = log_prob
-        self.hfunc["e2_t_Mass#faking_prob"] = merge_functions( attr_getter('e2_t_Mass'), f_prob  )
-        self.hfunc["e2_t_Mass#log_prob"   ] = merge_functions( attr_getter('e2_t_Mass'), log_prob)
-
-        self.hfunc["e*2_t_Mass#faking_prob"] = merge_functions( mass_scaler( attr_getter('e2_t_Mass')), f_prob  )
-        self.hfunc["e*2_t_Mass#log_prob"   ] = merge_functions( mass_scaler( attr_getter('e2_t_Mass')), log_prob)
         self.hfunc["e*2_t_Mass#LT" ] = merge_functions( mass_scaler( attr_getter('e2_t_Mass')), attr_getter('LT'))
         self.hfunc["e*2_t_Mass#tPt"] = merge_functions( mass_scaler( attr_getter('e2_t_Mass')), attr_getter('tPt'))
-
-        self.hfunc['pt_ratio' ] = lambda row, weight: (row.e2Pt/row.e1Pt, weight)
         self.hfunc["e*1_e2_Mass"] = mass_scaler( attr_getter('e1_e2_Mass'))
         self.hfunc["e*1_t_Mass" ] = mass_scaler( attr_getter('e1_t_Mass')) 
         self.hfunc["e1_e*2_Mass"] = mass_scaler( attr_getter('e1_e2_Mass'))
         self.hfunc["e*2_t_Mass" ] = mass_scaler( attr_getter('e2_t_Mass')) 
+
+        self.hfunc["e*+2_t_Mass#LT" ] = merge_functions( mass_scaler( attr_getter('e2_t_Mass'), scaler=frfits.default_scaler), attr_getter('LT'))
+        self.hfunc["e*+2_t_Mass#tPt"] = merge_functions( mass_scaler( attr_getter('e2_t_Mass'), scaler=frfits.default_scaler), attr_getter('tPt'))
+        self.hfunc["e*+1_e2_Mass"] = mass_scaler( attr_getter('e1_e2_Mass'), scaler=frfits.default_scaler)
+        self.hfunc["e*+1_t_Mass" ] = mass_scaler( attr_getter('e1_t_Mass') , scaler=frfits.default_scaler) 
+        self.hfunc["e1_e*+2_Mass"] = mass_scaler( attr_getter('e1_e2_Mass'), scaler=frfits.default_scaler)
+        self.hfunc["e*+2_t_Mass" ] = mass_scaler( attr_getter('e2_t_Mass') , scaler=frfits.default_scaler) 
+
+        self.hfunc['pt_ratio' ] = lambda row, weight: (row.e2Pt/row.e1Pt, weight)
         self.hfunc['SYNC'] = lambda row, weight: (row, None) #((row.run, row.lumi, row.evt, row.e1Pt, row.e1Eta, row.e1Phi, row.e2Pt, row.e2Eta, row.e2Phi, row.tPt, row.tEta, row.tPhi, weight), None)
 
         #self.hfunc['evt_info'] = lambda row, weight: (array.array("f", [row.e1Pt, row.e2Pt, row.tPt, row.LT, weight] ), None)
@@ -146,26 +148,29 @@ class WHAnalyzeEET(WHAnalyzerBase):
 
     def book_histos(self, folder):
 	#PLOTS TO FILL IN ANY CASE
-        LTBinning = array('d',[0, 80, 100, 600])
+        LTBinning = array('d',[0] + range(50,210,10) + [600])
         nLTBins   = len(LTBinning) -1
 	for key in self.grid_search:
 	    prefix = key+'$' if key else ''
-	    self.book(folder, prefix+"LT", "L_T", 100, 0, 300)
+	    self.book(folder, prefix+"LT", "L_T", 100, 0, 500)
             self.book(folder, prefix+"e2_t_Mass", "subleadingMass", 300, 0, 300)
             self.book(folder, prefix+"e2_t_Pt",   "subleadingPt", 400, 0, 400)
             #Charge mis-id special histograms
             if 'c2' in folder:
                 self.book(folder, prefix+"e*2_t_Mass", "subleadingMass with misid sclaing correction", 300, 0, 300)
+                self.book(folder, prefix+"e*+2_t_Mass", "subleadingMass with misid sclaing correction", 300, 0, 300)
 
         if len(self.grid_search.keys()) == 1:
             if 'c1' in folder:
                 self.book(folder, "e*1_e2_Mass", "E 1-2 Mass with misid sclaing correction", 120, 0, 120)
                 self.book(folder, "e*1_t_Mass", "leadingMass with misid sclaing correction", 200, 0, 200)
+                self.book(folder, "e*+1_e2_Mass", "E 1-2 Mass with misid sclaing correction", 120, 0, 120)
+                self.book(folder, "e*+1_t_Mass", "leadingMass with misid sclaing correction", 200, 0, 200)
             elif 'c2' in folder:
                 self.book(folder, "e1_e*2_Mass", "E 1-2 Mass with misid sclaing correction", 120, 0, 120)
-                #self.book(folder, "e*2_t_Mass#faking_prob", '', 200, 0, 200, 1100, 0., 1.1, type=ROOT.TH2F)
-                #self.book(folder, "e*2_t_Mass#log_prob"   , '', 200, 0, 200, 1000, -10,  1, type=ROOT.TH2F)
                 self.book(folder, "e*2_t_Mass#LT"         , '', 300, 0, 300, nLTBins, LTBinning, type=ROOT.TH2F)
+                self.book(folder, "e1_e*+2_Mass", "E 1-2 Mass with misid sclaing correction", 120, 0, 120)
+                self.book(folder, "e*+2_t_Mass#LT"         , '', 300, 0, 300, nLTBins, LTBinning, type=ROOT.TH2F)
 
 
             self.book(folder, prefix+"e2_t_Mass#LT" , "subleadingMass", 300, 0, 300, nLTBins, LTBinning, type=ROOT.TH2F)

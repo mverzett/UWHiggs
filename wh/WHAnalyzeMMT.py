@@ -94,7 +94,7 @@ class WHAnalyzeMMT(WHAnalyzerBase):
         self.pucorrector = mcCorrectors.make_puCorrector('doublemu')
 
     def book_histos(self, folder):
-        LTBinning = array('d',[0, 80, 130, 600])
+        LTBinning = array('d',[0] + range(50,210,10) + [600])
         nLTBins   = len(LTBinning) -1
         for key in self.grid_search:
             prefix = key+'$' if key else ''
