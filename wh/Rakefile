@@ -212,7 +212,7 @@ neighbors        = ['50'] # '100'] #, ]
 #############
 #  EM datas
 #############
-emcrs = [ 'wjets', 'ttbar']#'qcd',
+emcrs = [ 'wjets', 'ttbar', 'qcd']
 #elewps.select{|x| x.start_with?('eid12Medium')}.each do |ele_wp|
 em_wps.each do |ele_wp|
   emcrs.each do |cr|
@@ -234,7 +234,7 @@ em_wps.each do |ele_wp|
 end
 
 #muon fakes from em
-mmcrs = [ 'wjets', 'ttbar']#'qcd',
+mmcrs = [ 'wjets', 'ttbar', 'qcd']
 #muonwps.each do |mu_wp|
 ['h2taucuts'].each do |mu_wp|
   mmcrs.each do |cr|
@@ -256,7 +256,7 @@ end
 #############
 #  EE datas
 #############
-eecrs = [ 'wjetsNoZmass'] #['qcd',
+eecrs = [ 'wjetsNoZmass', 'qcd']
 #elewps.each do |ele_wp|
 ee_wps.each do |ele_wp|
   neighbors.each do |k|
@@ -284,7 +284,7 @@ end
 #  MM datas
 #############
 muon_kNN_vars= ['muonJetPt', 'muonPt', 'numJets20']
-mmcrs = [ 'wjets']#'qcd',
+mmcrs = [ 'wjets', 'qcd']
 muonwps.each do |mu_wp|
   mmcrs.each do |cr|
     neighbors.each do |k|
