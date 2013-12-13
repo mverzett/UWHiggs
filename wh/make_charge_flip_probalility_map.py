@@ -67,6 +67,7 @@ if __name__ == "__main__":
                         #' If variable binning is used, the numbers should '
                         #' be specified as a comma separated list w/o spaces.'
         )
+    parser.add_argument('--fit_only', action='store_true', help='performs only the fit')
 
 
     args = parser.parse_args(args[1:])
@@ -88,53 +89,55 @@ if __name__ == "__main__":
     log.info("Merging input files")
     input_files = [io.open(x) for x in args.input]
     input_view  = views.SumView(*input_files)
-    numerator   = input_view.Get(args.num)
-    denominator = input_view.Get(args.den)
-
-    #Checks if rebinning is needed
-    if (args.rebinX and args.rebinX > 1) or (args.rebinY and args.rebinY > 1):
-        binx = args.rebinX if args.rebinX else 1
-        biny = args.rebinY if args.rebinY else 1
-        numerator.Rebin2D(binx, biny)
-        denominator.Rebin2D(binx, biny) 
-        
-    eff_map          = numerator.Clone("efficiency_map")
-    eff_map_statUp   = numerator.Clone("efficiency_map_statUp")
-    eff_map_statDown = numerator.Clone("efficiency_map_statDown")
-    worse_rel_err    = numerator.Clone("worse_rel_err")
-
-    eff_map.SetTitle( eff_map.GetName() )
-    eff_map_statUp.SetTitle( eff_map_statUp.GetName() )
-    eff_map_statDown.SetTitle( eff_map_statDown.GetName() )
-    worse_rel_err.SetTitle( worse_rel_err.GetName() )
-    
-    log.info("Making efficiency map")
-    for ibinx in range(1,eff_map.GetNbinsX()+1):
-        for ibiny in range(eff_map.GetNbinsY()+1):
-            inum      = numerator.GetBinContent(ibinx, ibiny)
-            iden      = denominator.GetBinContent(ibinx, ibiny)
-            ieff       = inum / iden if iden <> 0 else 0
-            statUp    = ROOT.TEfficiency.ClopperPearson( int(iden), int(inum), 0.682689492137, True)
-            statDown  = ROOT.TEfficiency.ClopperPearson( int(iden), int(inum), 0.682689492137, False)
-            worse_err = (abs(statUp - ieff)/ieff if abs(statUp - ieff) > abs(statDown - ieff) else abs(statDown - ieff)/ieff) if ieff else 0.
-            eff_map.SetBinContent(ibinx, ibiny, ieff)
-            eff_map.SetBinError(ibinx, ibiny, worse_err*ieff)
-            eff_map_statUp.SetBinContent(ibinx, ibiny, statUp)
-            eff_map_statDown.SetBinContent(ibinx, ibiny, statDown)
-            worse_rel_err.SetBinContent(ibinx, ibiny, worse_err)
-            
-    canvas = ROOT.TCanvas("asdf", "asdf", 800, 600)
-    ROOT.gStyle.SetPalette(53)
-    eff_map.Draw('colz')
-    canvas.Print(args.output.replace(".root",".png"))
-    outFile = ROOT.TFile(args.output,'recreate') #FIXME move to rootpy io
+    canvas      = ROOT.TCanvas("asdf", "asdf", 800, 600)
+    outFile     = ROOT.TFile(args.output,'recreate') #FIXME move to rootpy io
     outFile.cd()
-    eff_map.Write()
-    eff_map_statUp.Write()
-    eff_map_statDown.Write()
-    worse_rel_err.Write()
-    base_dir   = os.path.dirname(args.num)
 
+    if not args.fit_only:
+        numerator   = input_view.Get(args.num)
+        denominator = input_view.Get(args.den)
+
+        #Checks if rebinning is needed
+        if (args.rebinX and args.rebinX > 1) or (args.rebinY and args.rebinY > 1):
+            binx = args.rebinX if args.rebinX else 1
+            biny = args.rebinY if args.rebinY else 1
+            numerator.Rebin2D(binx, biny)
+            denominator.Rebin2D(binx, biny) 
+            
+        eff_map          = numerator.Clone("efficiency_map")
+        eff_map_statUp   = numerator.Clone("efficiency_map_statUp")
+        eff_map_statDown = numerator.Clone("efficiency_map_statDown")
+        worse_rel_err    = numerator.Clone("worse_rel_err")
+
+        eff_map.SetTitle( eff_map.GetName() )
+        eff_map_statUp.SetTitle( eff_map_statUp.GetName() )
+        eff_map_statDown.SetTitle( eff_map_statDown.GetName() )
+        worse_rel_err.SetTitle( worse_rel_err.GetName() )
+    
+        log.info("Making efficiency map")
+        for ibinx in range(1,eff_map.GetNbinsX()+1):
+            for ibiny in range(eff_map.GetNbinsY()+1):
+                inum      = numerator.GetBinContent(ibinx, ibiny)
+                iden      = denominator.GetBinContent(ibinx, ibiny)
+                ieff       = inum / iden if iden <> 0 else 0
+                statUp    = ROOT.TEfficiency.ClopperPearson( int(iden), int(inum), 0.682689492137, True)
+                statDown  = ROOT.TEfficiency.ClopperPearson( int(iden), int(inum), 0.682689492137, False)
+                worse_err = (abs(statUp - ieff)/ieff if abs(statUp - ieff) > abs(statDown - ieff) else abs(statDown - ieff)/ieff) if ieff else 0.
+                eff_map.SetBinContent(ibinx, ibiny, ieff)
+                eff_map.SetBinError(ibinx, ibiny, worse_err*ieff)
+                eff_map_statUp.SetBinContent(ibinx, ibiny, statUp)
+                eff_map_statDown.SetBinContent(ibinx, ibiny, statDown)
+                worse_rel_err.SetBinContent(ibinx, ibiny, worse_err)
+                
+        ROOT.gStyle.SetPalette(53)
+        eff_map.Draw('colz')
+        canvas.Print(args.output.replace(".root",".png"))
+        eff_map.Write()
+        eff_map_statUp.Write()
+        eff_map_statDown.Write()
+        worse_rel_err.Write()
+
+    base_dir   = os.path.dirname(args.num)
     m          = ROOT.RooRealVar('m', 'm', 55,55,200)
     os_trkMass = ROOT.RooDataHist('higgs_data','higgs_data',ROOT.RooArgList(m),input_view.Get(os.path.join(base_dir,'os_trkMass')))
     mean       = ROOT.RooRealVar('mean', 'mean', 90,80,110)
