@@ -154,6 +154,13 @@ if not SKIP_MMT:
                       [ (frfit_dir + 'mm_wjets_pt10_h2taucuts020_muonInfo_k50.%s.kNN.weights.xml' % wz_sample, wz_lumi),
                         (frfit_dir + 'mm_wjets_pt10_h2taucuts020_muonInfo_k50.ZZJetsTo4L_pythia.kNN.weights.xml', zz_lumi)],
                       *variables)
+    lowpt_mu_fr.book( 'eid12Medium_h2taucuts', 
+                      MultiFunctorFromMVA,
+                      'lowpt_mu_fr',
+                      (frfit_dir + 'mm_wjets_pt10_h2taucuts_muonInfo_k50.data.kNN.weights.xml', double_mu_lumi),
+                      [ (frfit_dir + 'mm_wjets_pt10_h2taucuts_muonInfo_k50.%s.kNN.weights.xml' % wz_sample, wz_lumi),
+                        (frfit_dir + 'mm_wjets_pt10_h2taucuts_muonInfo_k50.ZZJetsTo4L_pythia.kNN.weights.xml', zz_lumi)],
+                      *variables)
     
     highpt_mu_fr = SmartDict()
     highpt_mu_fr.book( 'eid12Medium_h2taucuts', 
@@ -168,17 +175,23 @@ if not SKIP_MMT:
     
     lowpt_mu_qcd_fr  = SmartDict() 
     lowpt_mu_qcd_fr.book( 'eid12Medium_h2taucuts020', 
-                      FunctorFromMVA,
-                      'lowpt_mu_qcd_fr',
-                      frfit_dir + 'mm_qcd_pt10_h2taucuts020_muonInfo_k50.data.kNN.weights.xml',
+                      MultiFunctorFromMVA,
+                      'lowpt_mu_fr',
+                      (frfit_dir +   'mm_wjets_pt10_h2taucuts020_muonInfo_k20.data.kNN.weights.xml', double_mu_lumi),
+                      [ (frfit_dir + 'mm_wjets_pt10_h2taucuts020_muonInfo_k20.%s.kNN.weights.xml' % wz_sample, wz_lumi),
+                        (frfit_dir + 'mm_wjets_pt10_h2taucuts020_muonInfo_k20.ZZJetsTo4L_pythia.kNN.weights.xml', zz_lumi)],
                       *variables)
 
     highpt_mu_qcd_fr = SmartDict() 
     highpt_mu_qcd_fr.book( 'eid12Medium_h2taucuts', 
-                      FunctorFromMVA,
-                      'highpt_mu_qcd_fr',
-                      frfit_dir + 'mm_qcd_pt10_h2taucuts_muonInfo_k50.data.kNN.weights.xml',
-                      *variables)
+                      MultiFunctorFromMVA,
+                      'highpt_mu_fr',
+                      (frfit_dir +   'mm_wjets_pt10_h2taucuts_muonInfo_k20.data.kNN.weights.xml', double_mu_lumi),
+                      [ (frfit_dir + 'mm_wjets_pt10_h2taucuts_muonInfo_k20.%s.kNN.weights.xml' % wz_sample, wz_lumi),
+                        (frfit_dir + 'mm_wjets_pt10_h2taucuts_muonInfo_k20.ZZJetsTo4L_pythia.kNN.weights.xml', zz_lumi)],
+                       *variables,
+                       phase_space='muonPt > 20'
+    )
 
 
 
@@ -218,11 +231,23 @@ if not SKIP_EMT:
 
     lowpt_mue_qcd_fr = SmartDict()
     lowpt_mue_qcd_fr.book( 'eid12Medium_h2taucuts',
-                           FunctorFromMVA,
-                           'lowpt_mue_qcd_fr',
-                           frfit_dir + 'em_Mqcd_pt10_h2taucuts_muonInfo_k50.data.kNN.weights.xml',
-                           *variables )
-    highpt_mue_qcd_fr = lowpt_mue_qcd_fr
+                           MultiFunctorFromMVA,
+                           'lowpt_mue_fr',
+                           (frfit_dir +   'em_Mwjets_pt10_h2taucuts_muonInfo_k20.data.kNN.weights.xml', mueg_lumi),
+                           [ (frfit_dir + 'em_Mwjets_pt10_h2taucuts_muonInfo_k20.%s.kNN.weights.xml' % wz_sample, wz_lumi),
+                             (frfit_dir + 'em_Mwjets_pt10_h2taucuts_muonInfo_k20.ZZJetsTo4L_pythia.kNN.weights.xml', zz_lumi)],
+                           *variables)
+
+    highpt_mue_qcd_fr = SmartDict()
+    highpt_mue_qcd_fr.book( 'eid12Medium_h2taucuts',
+                            MultiFunctorFromMVA,
+                            'lowpt_mue_fr',
+                            (frfit_dir +   'em_Mwjets_pt10_h2taucuts_muonInfo_k20.data.kNN.weights.xml', mueg_lumi),
+                            [ (frfit_dir + 'em_Mwjets_pt10_h2taucuts_muonInfo_k20.%s.kNN.weights.xml' % wz_sample, wz_lumi),
+                              (frfit_dir + 'em_Mwjets_pt10_h2taucuts_muonInfo_k20.ZZJetsTo4L_pythia.kNN.weights.xml', zz_lumi)],
+                            *variables,
+                            phase_space='muonPt > 20'
+    )
 
 
     variables = ['electronJetPt', 'electronPt', 'numJets20']
@@ -248,11 +273,23 @@ if not SKIP_EMT:
     
     lowpt_e_qcd_fr  = SmartDict()
     lowpt_e_qcd_fr.book( 'eid12Medium_h2taucuts',
-                         FunctorFromMVA,
-                         'lowpt_e_qcd_fr',
-                         frfit_dir + 'em_qcd_pt10_eid12Medium_h2taucuts_electronInfo_k50.data.kNN.weights.xml',
-                         *variables )
-    highpt_e_qcd_fr = lowpt_e_qcd_fr
+                         MultiFunctorFromMVA,
+                         'lowpt_e_fr',
+                         (frfit_dir +   'em_wjets_pt10_eid12Medium_h2taucuts_electronInfo_k20.data.kNN.weights.xml', mueg_lumi),
+                         [ (frfit_dir + 'em_wjets_pt10_eid12Medium_h2taucuts_electronInfo_k20.%s.kNN.weights.xml' % wz_sample, wz_lumi),
+                           (frfit_dir + 'em_wjets_pt10_eid12Medium_h2taucuts_electronInfo_k20.ZZJetsTo4L_pythia.kNN.weights.xml', zz_lumi)],
+                         *variables)
+
+    highpt_e_qcd_fr = SmartDict()
+    highpt_e_qcd_fr.book( 'eid12Medium_h2taucuts',
+                          MultiFunctorFromMVA,
+                          'lowpt_e_fr',
+                          (frfit_dir +   'em_wjets_pt10_eid12Medium_h2taucuts_electronInfo_k20.data.kNN.weights.xml', mueg_lumi),
+                          [ (frfit_dir + 'em_wjets_pt10_eid12Medium_h2taucuts_electronInfo_k20.%s.kNN.weights.xml' % wz_sample, wz_lumi),
+                            (frfit_dir + 'em_wjets_pt10_eid12Medium_h2taucuts_electronInfo_k20.ZZJetsTo4L_pythia.kNN.weights.xml', zz_lumi)],
+                          *variables,
+                          phase_space='electronPt > 20'
+    )
 
                        
     #lowpt_mue_fr  = make_mva_functor_dict(frfit_dir + '/em_Mwjets_pt10_%s_muonInfo_k100.kNN.weights.xml', variables, mapper=make_regex_mapper(mapper))
@@ -283,6 +320,14 @@ if not SKIP_EET:
                       [ (frfit_dir + 'ee_wjetsNoZmass_pt10_eid12Medium_h2taucuts020_electronInfo_k50.%s.kNN.weights.xml' % wz_sample, wz_lumi),
                         (frfit_dir + 'ee_wjetsNoZmass_pt10_eid12Medium_h2taucuts020_electronInfo_k50.ZZJetsTo4L_pythia.kNN.weights.xml', zz_lumi)],
                       *variables)
+    lowpt_ee_fr.book( 'eid12Tight_h2taucuts',
+                       MultiFunctorFromMVA,
+                       'highpt_ee_fr',
+                       (frfit_dir + 'ee_wjetsNoZmass_pt10_eid12Tight_h2taucuts_electronInfo_k50.data.kNN.weights.xml', double_e_lumi),
+                       [ (frfit_dir + 'ee_wjetsNoZmass_pt10_eid12Tight_h2taucuts_electronInfo_k50.%s.kNN.weights.xml' % wz_sample, wz_lumi),
+                         (frfit_dir + 'ee_wjetsNoZmass_pt10_eid12Tight_h2taucuts_electronInfo_k50.ZZJetsTo4L_pythia.kNN.weights.xml', zz_lumi)],
+                       *variables
+    )
         
     highpt_ee_fr = SmartDict()
     highpt_ee_fr.book( 'eid12Tight_h2taucuts',
@@ -298,17 +343,23 @@ if not SKIP_EET:
 
     lowpt_ee_qcd_fr  = SmartDict()
     lowpt_ee_qcd_fr.book( 'eid12Medium_h2taucuts020',
-                      FunctorFromMVA,
-                      'lowpt_ee_qcd_fr',
-                      frfit_dir + 'ee_qcd_pt10_eid12Medium_h2taucuts020_electronInfo_k50.data.kNN.weights.xml',
+                      MultiFunctorFromMVA,
+                      'lowpt_ee_fr',
+                      (frfit_dir + 'ee_wjetsNoZmass_pt10_eid12Medium_h2taucuts020_electronInfo_k20.data.kNN.weights.xml', double_e_lumi),
+                      [ (frfit_dir + 'ee_wjetsNoZmass_pt10_eid12Medium_h2taucuts020_electronInfo_k20.%s.kNN.weights.xml' % wz_sample, wz_lumi),
+                        (frfit_dir + 'ee_wjetsNoZmass_pt10_eid12Medium_h2taucuts020_electronInfo_k20.ZZJetsTo4L_pythia.kNN.weights.xml', zz_lumi)],
                       *variables)
 
     highpt_ee_qcd_fr = SmartDict()
     highpt_ee_qcd_fr.book( 'eid12Tight_h2taucuts',
-                           FunctorFromMVA,
-                           'highpt_ee_qcd_fr',
-                           frfit_dir + 'ee_qcd_pt10_eid12Tight_h2taucuts_electronInfo_k50.data.kNN.weights.xml',
-                           *variables)
+                       MultiFunctorFromMVA,
+                       'highpt_ee_fr',
+                       (frfit_dir + 'ee_wjetsNoZmass_pt10_eid12Tight_h2taucuts_electronInfo_k20.data.kNN.weights.xml', double_e_lumi),
+                       [ (frfit_dir + 'ee_wjetsNoZmass_pt10_eid12Tight_h2taucuts_electronInfo_k20.%s.kNN.weights.xml' % wz_sample, wz_lumi),
+                         (frfit_dir + 'ee_wjetsNoZmass_pt10_eid12Tight_h2taucuts_electronInfo_k20.ZZJetsTo4L_pythia.kNN.weights.xml', zz_lumi)],
+                       *variables,
+                       phase_space='electronPt > 20'
+    )
 
 
 
@@ -344,8 +395,7 @@ if not (SKIP_EMT or SKIP_EET):
     e_charge_flip_up    = make_corrector_dict(frfit_dir+"/charge_flip_prob_map_%s.root", "efficiency_map_statUp")  
     e_charge_flip_down  = make_corrector_dict(frfit_dir+"/charge_flip_prob_map_%s.root", "efficiency_map_statDown")
     mass_scaler         = make_scaler_dict(frfit_dir+"/charge_flip_prob_map_%s.root", 'mass_scale')
-    mass_scaler_up      = make_scaler_dict(frfit_dir+"/charge_flip_prob_map_%s.root", 'mass_scale', error_scale=1 )
-    mass_scaler_down    = make_scaler_dict(frfit_dir+"/charge_flip_prob_map_%s.root", 'mass_scale', error_scale=-1)
-    default_scaler      = mass_scaler[     mass_scaler.keys()[0]]
-    default_scaler_up   = mass_scaler_up[  mass_scaler.keys()[0]]
-    default_scaler_down = mass_scaler_down[mass_scaler.keys()[0]]
+    default_scaler      = mass_scaler[mass_scaler.keys()[0]]
+    data_scaler         = None
+    if os.path.isfile(frfit_dir+"/charge_flip_prob_map_data.root"):
+        data_scaler = make_scaler(frfit_dir+"/charge_flip_prob_map_data.root", 'mass_scale')
