@@ -207,12 +207,12 @@ fr_fits      = Hash.new
 kNN_trains   = Hash.new
 muon_kNN_vars= ['muonJetPt', 'muonPt', 'numJets20'] 
 electron_kNN_vars= ['electronJetPt', 'electronPt', 'numJets20']
-neighbors        = ['50'] # '100'] #, ]
+neighbors        = ['1', '50', '20'] # '100'] #, ]
 
 #############
 #  EM datas
 #############
-emcrs = [ 'wjets', 'ttbar', 'qcd']
+emcrs = [ 'wjets' ] #, 'ttbar', 'qcd']
 #elewps.select{|x| x.start_with?('eid12Medium')}.each do |ele_wp|
 em_wps.each do |ele_wp|
   emcrs.each do |cr|
@@ -234,7 +234,7 @@ em_wps.each do |ele_wp|
 end
 
 #muon fakes from em
-mmcrs = [ 'wjets', 'ttbar', 'qcd']
+mmcrs = [ 'wjets' ] #, 'ttbar', 'qcd']
 #muonwps.each do |mu_wp|
 ['h2taucuts'].each do |mu_wp|
   mmcrs.each do |cr|
@@ -256,7 +256,7 @@ end
 #############
 #  EE datas
 #############
-eecrs = [ 'wjetsNoZmass', 'qcd']
+eecrs = [ 'wjetsNoZmass' ]#, 'qcd']
 #elewps.each do |ele_wp|
 ee_wps.each do |ele_wp|
   neighbors.each do |k|
@@ -284,7 +284,7 @@ end
 #  MM datas
 #############
 muon_kNN_vars= ['muonJetPt', 'muonPt', 'numJets20']
-mmcrs = [ 'wjets', 'qcd']
+mmcrs = [ 'wjets'] #, 'qcd']
 muonwps.each do |mu_wp|
   mmcrs.each do |cr|
     neighbors.each do |k|
@@ -427,7 +427,7 @@ kNN_trains.each do |kNN, info|
   knn_all_output = $frfit_dir + "/#{kNN}.ALL.kNN.root"
   file knn_all_output => data_list + [info['analyzer'] + '.py',] do |t|
     sh "mkdir -p #{$frfit_dir}"
-    sh "train_kNN.py --files #{data_list.join(' ')} #{mc_list.join(' ')} --outputfile #{t.name} --tree #{tree_path} --cut #{cut} --variables #{vars_str} --makePlots 1 --neighbors 100" #{neigh}"
+    sh "train_kNN.py --files #{data_list.join(' ')} #{mc_list.join(' ')} --outputfile #{t.name} --tree #{tree_path} --cut #{cut} --variables #{vars_str} --makePlots 1 --neighbors #{neigh}" #{neigh}"
   end
   task :kNN => knn_all_output
   kNN_files << knn_all_output
@@ -1165,3 +1165,97 @@ task :copycards => ["#{$auxdir}/vhtt_llt.inputs-sm-#{$period}.root"] +
 end
 
 
+####################################################################################
+##
+##    Tasks to look for the best number of neighbors in kNN
+##    (To do only every now and then)
+##
+####################################################################################
+
+resultdir="results/#{$jobid}/"
+studydir="#{resultdir}/NeighborsStudy"
+frdir="#{resultdir}/NeighborsStudy/fakerates"
+neighbors_scan = (10..100).step(10)
+splitters = Hash[
+   '(x % 2) == 0' => "even", 
+   '(x % 2) == 1' => "odd",
+]
+task :kNNSplitted  => []
+splitted_trees = Hash[]
+
+kNN_trains.reject{|key, val| not key.include? "_k#{neighbors[0]}"}.each do |kNN, info|
+  kNN_configuration = kNN.split("_")
+  region = ''
+  denom  = ''
+  cut    = ''
+  var    = ''
+  channel= ''
+
+  if kNN_configuration.size() == 7 #check if we have an idIso with _ separation
+    channel= kNN_configuration[0]
+    region = kNN_configuration[1]
+    denom = kNN_configuration[2]
+    cut = "#{kNN_configuration[3]}_#{kNN_configuration[4]}"
+    var = kNN_configuration[5]
+    neigh = kNN_configuration[6].sub('k','')
+  else #otherwise as usual
+    channel= kNN_configuration[0]
+    region = kNN_configuration[1]
+    denom = kNN_configuration[2]
+    cut = kNN_configuration[3]
+    var = kNN_configuration[4]
+    neigh = kNN_configuration[5].sub('k','')
+  end
+
+
+  # Expand sample list
+  subsample_inputs = []
+  info['samples'].each do |sample|
+    subsample_inputs += samples[sample]
+  end
+  subsamples_inputs_result_list = subsample_inputs.map{|x|  "results/#{$jobid}/#{info['analyzer']}/#{x}.root"}
+
+  data_list = subsamples_inputs_result_list.select{|x| x.include? 'data_'}
+  mc_list   = subsamples_inputs_result_list.select{|x| not x.include? 'data_'}
+  #subsample_input_list = subsamples_inputs_result_list.join(" ")
+
+  # Path to tree in root files
+  tree_path = Array[region, denom, var].join("/")
+  vars_str  = info['vars'].join(" ")
+  neighbors_scan.each do |neigh_scan_point|
+    kNN_point_name = kNN.sub("_k#{neighbors[0]}","_k#{neigh_scan_point}")
+    splitters.each do |splitter, name|
+      kNN_version = "#{kNN_point_name}.#{name}"
+      knn_data_output = frdir + "/#{kNN_version}.data.kNN.root"
+      file knn_data_output => data_list + [info['analyzer'] + '.py',] do |t|
+        sh "mkdir -p #{frdir}"
+        sh "train_kNN.py --files #{data_list.join(' ')} --outputfile #{t.name} --tree #{tree_path} --cut #{cut} --variables #{vars_str} --makePlots 0 --neighbors #{neigh_scan_point} --splitter '#{splitter}'"
+      end
+      task :kNNSplitted => knn_data_output
+      
+      split_tree_name = frdir + "/#{channel}_#{region}_#{denom}_#{var}_data.#{name}_tree.root"
+      splitted_trees[split_tree_name] = [data_list + [info['analyzer'] + '.py',], "split_tree.py --infiles #{data_list.join(' ')} --outputfile #{split_tree_name} --treepath #{tree_path} --parity #{name}"]
+
+      mc_list.each do |mc_input|
+        base = Pathname.new(mc_input).basename.sub('.root','')
+        kNN_mc_output = frdir + "/#{kNN_version}.#{base}.kNN.root"
+        file kNN_mc_output => [mc_input] + [info['analyzer'] + '.py',] do |t|
+          sh "mkdir -p #{$frfit_dir}"
+          sh "train_kNN.py --files #{mc_input} --outputfile #{t.name} --tree #{tree_path} --cut #{cut} --variables #{vars_str} --makePlots 0 --neighbors #{neigh} --forceLumi -1 --splitter '#{splitter}'"
+        end    
+        task :kNNSplitted => kNN_mc_output
+
+        split_tree_name = frdir + "/#{channel}_#{region}_#{denom}_#{var}_#{base}.#{name}_tree.root"
+        splitted_trees[split_tree_name] = [data_list + [info['analyzer'] + '.py',], "split_tree.py --infiles #{mc_input} --outputfile #{split_tree_name} --treepath #{tree_path} --parity #{name}"]
+      end
+    end
+  end
+end
+
+splitted_trees.each do |fname, info|
+  file fname => info[0] do |t|
+    sh "mkdir -p #{frdir}"
+    sh info[1]
+  end
+  task :kNNSplitted => fname
+end
