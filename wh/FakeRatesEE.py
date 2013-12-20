@@ -22,6 +22,7 @@ import EETree
 from FinalStateAnalysis.PlotTools.MegaBase import MegaBase
 import baseSelections as selections
 from FinalStateAnalysis.PlotTools.decorators import decorator
+from FinalStateAnalysis.Utilities.struct import struct
 #import ROOT.TMath as math
 import mcCorrectors
 import os
@@ -86,8 +87,12 @@ class FakeRatesEE(MegaBase):
                 denom_histos['electronInfo'] = self.book(
                     os.path.join(region, denom),
                     'electronInfo', "electronInfo", 
-                    'electronPt:electronJetPt:electronJetCSVBtag:numJets20:numJets40:weight:tagElectronJetMass:probeElectronJetMass:LT:'+':'.join(self.lepIds), 
-                    type=ROOT.TNtuple)
+                    'run/l:lumi/l:evt/l' +\
+                    ':electronPt/D:electronJetPt/D:numJets20/D:weight/D' +\
+                    ':electronJetCSVBtag/D:numJets40/D:tagElectronJetMass/D' +\
+                    ':probeElectronJetMass/D:LT/D:tagElectronPt/D' +\
+                    ':'+':'.join(i+'/D' for i in self.lepIds),
+                    type=pytree.PyTree)
 
                 denom_histos['evtInfo'] = self.book(
                     os.path.join(region, denom),
@@ -191,9 +196,29 @@ class FakeRatesEE(MegaBase):
                 electron2_jet_mass = inv_mass(row.e2Pt, row.e2Eta, row.e2Phi, row.leadingJetPt, row.leadingJetEta, row.leadingJetPhi)
                 LT = row.e1Pt + row.e2Pt + row.leadingJetPt
                 
-                the_histos['electronInfo'].Fill( array("f", [row.e2Pt, max(row.e2Pt, row.e2JetPt), max(0, row.e2JetCSVBtag),
-                                                             row.jetVeto20, row.jetVeto40_DR05, weight, electron1_jet_mass,
-                                                             electron2_jet_mass, LT]+id_iso_vals) )
+                entry = {
+                    'run'  : row.run,
+                    'lumi' : row.lumi,
+                    'evt'  : row.evt,
+                    'electronPt'    : row.e2Pt, 
+                    'electronJetPt' : max(row.e2Pt, row.e2JetPt),
+                    'numJets20'     : row.jetVeto20,
+                    'weight'        : weight,
+                    'electronJetCSVBtag' : max(0, row.e2JetCSVBtag),
+                    'numJets40'          : row.jetVeto40_DR05,
+                    'tagElectronJetMass' : electron1_jet_mass,
+                    'probeElectronJetMass' : electron2_jet_mass,
+                    'LT'            : LT,
+                    'tagElectronPt' : row.e1Pt,
+                }
+
+                for name, value in zip(self.lepIds, id_iso_vals):
+                    entry[name] = value
+
+                the_histos['electronInfo'].Fill( struct(**entry) )
+                #    array("f", [row.e2Pt, max(row.e2Pt, row.e2JetPt), max(0, row.e2JetCSVBtag),
+                #                row.jetVeto20, row.jetVeto40_DR05, weight, electron1_jet_mass,
+                #                electron2_jet_mass, LT]+id_iso_vals) )
                 the_histos['evtInfo'].Fill( row )
 
 

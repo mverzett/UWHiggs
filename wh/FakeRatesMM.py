@@ -23,6 +23,8 @@ import baseSelections as selections
 import os
 import ROOT
 from cutflowtracker import cut_flow_tracker
+import FinalStateAnalysis.PlotTools.pytree as pytree
+from FinalStateAnalysis.Utilities.struct import struct
 import math
 
 def inv_mass(pt1,eta1,phi1,pt2,eta2,phi2):
@@ -78,13 +80,16 @@ class FakeRatesMM(MegaBase):
                 denom_key = (region, denom)
                 denom_histos = {}
                 self.histograms[denom_key] = denom_histos
-                
                 #SPECIAL NTUPLE!
                 denom_histos['muonInfo'] = self.book(
                     os.path.join(region, denom),
-                    'muonInfo', "muonInfo", 
-                    'muonPt:muonJetPt:muonAbsEta:muonJetCSVBtag:muonPVDXY:numJets20:numJets40:weight:tagMuonJetMass:probeMuonJetMass:LT:'+':'.join(self.lepIds), 
-                    type=ROOT.TNtuple)
+                    'muonInfo', 'muonInfo',
+                    'run/l:lumi/l:evt/l' +\
+                    ':muonPt/D:muonJetPt/D:numJets20/D:weight/D' +\
+                    ':muonAbsEta/D:muonJetCSVBtag/D:muonPVDXY/D:numJets40/D' +\
+                    ':tagMuonJetMass/D:probeMuonJetMass/D:LT/D:tagMuonPt/D' +\
+                    ':'+':'.join(i+'/D' for i in self.lepIds), 
+                    type=pytree.PyTree)
                 
                 for numerator in self.lepIds:
                     num_key = (region, denom, numerator)
@@ -196,9 +201,31 @@ class FakeRatesMM(MegaBase):
                 muon2_jet_mass = inv_mass(row.m2Pt, row.m2Eta, row.m2Phi, row.leadingJetPt, row.leadingJetEta, row.leadingJetPhi)
                 LT             = row.m2Pt + row.m1Pt + row.leadingJetPt
 
-                the_histos['muonInfo'].Fill( array("f", [row.m2Pt, max(row.m2JetPt, row.m2Pt), row.m2AbsEta, max(0, row.m2JetCSVBtag), 
-                                                         abs(row.m2PVDXY), row.jetVeto20, row.jetVeto40_DR05, weight, muon1_jet_mass,
-                                                         muon2_jet_mass, LT, pfidiso02, h2taucuts, h2taucuts020] ) )
+                entry = struct(**{
+                    'run'              : row.run,
+                    'lumi'             : row.lumi,
+                    'evt'              : row.evt,
+                    'muonPt'           : row.m2Pt,
+                    'muonJetPt'        : max(row.m2JetPt, row.m2Pt),
+                    'numJets20'        : row.jetVeto20,
+                    'weight'           : weight,
+                    'muonAbsEta'       : row.m2AbsEta,
+                    'muonJetCSVBtag'   : max(0, row.m2JetCSVBtag) ,
+                    'muonPVDXY'        : abs(row.m2PVDXY),
+                    'numJets40'        : row.jetVeto40_DR05,
+                    'LT'               : LT,
+                    'tagMuonPt'        : row.m1Pt,
+                    'pfidiso02'        : pfidiso02,
+                    'h2taucuts'        : h2taucuts,
+                    'h2taucuts020'     : h2taucuts020,
+                    'tagMuonJetMass'   : muon1_jet_mass,
+                    'probeMuonJetMass' : muon2_jet_mass,
+                })
+
+                the_histos['muonInfo'].Fill( entry ) 
+                #array("f", [row.m2Pt, max(row.m2JetPt, row.m2Pt), row.m2AbsEta, max(0, row.m2JetCSVBtag), 
+                #            abs(row.m2PVDXY), row.jetVeto20, row.jetVeto40_DR05, weight, muon1_jet_mass,
+                #            muon2_jet_mass, LT, pfidiso02, h2taucuts, h2taucuts020] ) )
         
         def fill_region(region, tag):
             # This is a QCD or Wjets
